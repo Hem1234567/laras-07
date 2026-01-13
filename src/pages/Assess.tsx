@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,8 +21,12 @@ import {
   Info,
   Save,
   Bell,
-  FileText
+  FileText,
+  Map as MapIcon
 } from "lucide-react";
+
+// Lazy load map component
+const RiskZoneMap = lazy(() => import("@/components/RiskZoneMap"));
 
 type RiskLevelType = "very_low" | "low" | "medium" | "high" | "critical";
 type PropertyType = "agricultural_land" | "vacant_plot" | "independent_house" | "apartment" | "commercial" | "industrial";
@@ -52,6 +56,29 @@ const INDIAN_STATES = [
   "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh",
   "Andaman and Nicobar Islands", "Dadra and Nagar Haveli", "Daman and Diu", "Lakshadweep"
 ];
+
+// State coordinates for map visualization
+const getStateCoordinates = (state: string): [number, number] => {
+  const coords: Record<string, [number, number]> = {
+    "Maharashtra": [19.7515, 75.7139],
+    "Gujarat": [22.2587, 71.1924],
+    "Karnataka": [15.3173, 75.7139],
+    "Tamil Nadu": [11.1271, 78.6569],
+    "Uttar Pradesh": [26.8467, 80.9462],
+    "Rajasthan": [27.0238, 74.2179],
+    "Madhya Pradesh": [22.9734, 78.6569],
+    "Delhi": [28.7041, 77.1025],
+    "West Bengal": [22.9868, 87.8550],
+    "Andhra Pradesh": [15.9129, 79.7400],
+    "Telangana": [18.1124, 79.0193],
+    "Kerala": [10.8505, 76.2711],
+    "Punjab": [31.1471, 75.3412],
+    "Haryana": [29.0588, 76.0856],
+    "Bihar": [25.0961, 85.3131],
+    "Odisha": [20.9517, 85.0985],
+  };
+  return coords[state] || [20.5937, 78.9629]; // Default to India center
+};
 
 const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: "agricultural_land", label: "Agricultural Land" },
@@ -484,6 +511,45 @@ export default function Assess() {
                       Download Report
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Risk Zone Map */}
+              <Card className="shadow-soft overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapIcon className="h-5 w-5" />
+                    Risk Zone Visualization
+                  </CardTitle>
+                  <CardDescription>
+                    Interactive map showing your property and nearby infrastructure projects
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Suspense fallback={
+                    <div className="h-[400px] flex items-center justify-center bg-muted/20">
+                      <div className="text-center">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                        <p className="text-sm text-muted-foreground">Loading map...</p>
+                      </div>
+                    </div>
+                  }>
+                    <RiskZoneMap
+                      latitude={getStateCoordinates(formData.state)[0]}
+                      longitude={getStateCoordinates(formData.state)[1]}
+                      riskLevel={result.risk_level}
+                      riskScore={result.risk_score}
+                      nearbyProjects={result.nearby_projects.map(p => ({
+                        id: p.id,
+                        name: p.project_name,
+                        type: p.project_type,
+                        phase: p.project_phase,
+                        distance: p.distance_km,
+                        riskContribution: Math.round(100 / result.nearby_projects.length),
+                      }))}
+                      height="400px"
+                    />
+                  </Suspense>
                 </CardContent>
               </Card>
 
