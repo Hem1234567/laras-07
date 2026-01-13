@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -41,11 +41,13 @@ export default function Auth() {
   });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, signOut, user } = useAuth();
   const navigate = useNavigate();
+  const isSigningUpRef = useRef(false);
 
   useEffect(() => {
-    if (user) {
+    // Only redirect if we are not currently simulating a sign out after sign up
+    if (user && !isSigningUpRef.current) {
       navigate("/dashboard");
     }
   }, [user, navigate]);
@@ -86,15 +88,20 @@ export default function Auth() {
           return;
         }
 
+        isSigningUpRef.current = true;
         const { error } = await signUp(formData.email, formData.password, formData.fullName);
         if (error) {
+          isSigningUpRef.current = false;
           if (error.message.includes("already registered")) {
             setError("This email is already registered. Please sign in instead.");
           } else {
             setError(error.message);
           }
         } else {
-          setSuccess("Account created successfully! You can now sign in.");
+          // Force sign out to prevent auto-login
+          await signOut();
+          isSigningUpRef.current = false;
+          setSuccess("Account created successfully! Please sign in.");
           setIsSignUp(false);
           setFormData({ ...formData, password: "", confirmPassword: "" });
         }
@@ -114,8 +121,11 @@ export default function Auth() {
 
         const { error } = await signIn(formData.email, formData.password);
         if (error) {
+          console.error("Login error:", error);
           if (error.message.includes("Invalid login credentials")) {
             setError("Invalid email or password. Please try again.");
+          } else if (error.message.includes("Email not confirmed")) {
+            setError("Please verify your email address before signing in.");
           } else {
             setError(error.message);
           }
@@ -144,8 +154,8 @@ export default function Auth() {
               {isSignUp ? "Create your account" : "Welcome back"}
             </CardTitle>
             <CardDescription>
-              {isSignUp 
-                ? "Start protecting your property investments today" 
+              {isSignUp
+                ? "Start protecting your property investments today"
                 : "Sign in to access your dashboard"}
             </CardDescription>
           </CardHeader>
@@ -157,7 +167,7 @@ export default function Auth() {
                   {error}
                 </div>
               )}
-              
+
               {success && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-success/10 text-success text-sm">
                   <CheckCircle className="h-4 w-4 flex-shrink-0" />
