@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { RiskBadge, RiskScore } from "@/components/RiskBadge";
@@ -184,14 +185,14 @@ export default function Assess() {
         property_size: formData.propertySize ? parseFloat(formData.propertySize) : null,
         risk_score: result.risk_score,
         risk_level: result.risk_level,
-        nearby_projects: result.nearby_projects as unknown as Record<string, unknown>,
-        recommendations: result.recommendations as unknown as Record<string, unknown>,
+        nearby_projects: JSON.parse(JSON.stringify(result.nearby_projects)) as Json,
+        recommendations: JSON.parse(JSON.stringify(result.recommendations)) as Json,
         is_saved: true,
       };
       
       const { data, error } = await supabase
         .from("property_assessments")
-        .insert(insertData)
+        .insert([insertData])
         .select()
         .single();
 
