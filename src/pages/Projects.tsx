@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
@@ -7,9 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Search, 
-  Filter, 
   Building2, 
   Train, 
   Plane, 
@@ -19,9 +19,14 @@ import {
   IndianRupee,
   Loader2,
   AlertCircle,
-  ExternalLink
+  ExternalLink,
+  Map as MapIcon,
+  List
 } from "lucide-react";
 import { format } from "date-fns";
+
+// Lazy load map component to improve initial page load
+const ProjectMap = lazy(() => import("@/components/ProjectMap"));
 
 interface Project {
   id: string;
@@ -36,6 +41,8 @@ interface Project {
   expected_completion_date: string | null;
   budget_crores: number | null;
   land_required_hectares: number | null;
+  alignment_geojson: any | null;
+  buffer_distance_meters: number | null;
 }
 
 const PROJECT_TYPE_ICONS: Record<string, typeof Building2> = {
@@ -81,6 +88,8 @@ export default function Projects() {
   const [selectedType, setSelectedType] = useState("all");
   const [selectedPhase, setSelectedPhase] = useState("all");
   const [selectedState, setSelectedState] = useState("all");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
+  const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
   useEffect(() => {
     fetchProjects();
@@ -192,21 +201,52 @@ export default function Projects() {
           </CardContent>
         </Card>
 
-        {/* Map Placeholder */}
-        <Card className="shadow-soft mb-6 overflow-hidden">
-          <div className="relative h-[300px] bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center">
-            <div className="text-center">
-              <MapPin className="h-12 w-12 text-primary/40 mx-auto mb-3" />
-              <h3 className="font-semibold text-lg mb-1">Interactive Map Coming Soon</h3>
-              <p className="text-sm text-muted-foreground max-w-md">
-                View all infrastructure projects on an interactive map with risk zone visualization.
+        {/* View Toggle and Map */}
+        <div className="mb-6">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "map" | "list")} className="w-full">
+            <div className="flex items-center justify-between mb-4">
+              <TabsList className="grid w-[200px] grid-cols-2">
+                <TabsTrigger value="map" className="flex items-center gap-2">
+                  <MapIcon className="h-4 w-4" />
+                  Map
+                </TabsTrigger>
+                <TabsTrigger value="list" className="flex items-center gap-2">
+                  <List className="h-4 w-4" />
+                  List
+                </TabsTrigger>
+              </TabsList>
+              <p className="text-sm text-muted-foreground">
+                {filteredProjects.length} projects found
               </p>
-              <Button variant="outline" className="mt-4" disabled>
-                Requires Mapbox Token
-              </Button>
             </div>
-          </div>
-        </Card>
+            
+            <TabsContent value="map" className="mt-0">
+              <Suspense fallback={
+                <Card className="shadow-soft overflow-hidden">
+                  <div className="h-[500px] flex items-center justify-center bg-muted/20">
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Loading map...</p>
+                    </div>
+                  </div>
+                </Card>
+              }>
+                <ProjectMap
+                  projects={filteredProjects}
+                  selectedProjectId={selectedProjectId}
+                  onProjectSelect={(project) => {
+                    setSelectedProjectId(project.id);
+                  }}
+                  height="500px"
+                />
+              </Suspense>
+            </TabsContent>
+            
+            <TabsContent value="list" className="mt-0">
+              {/* Projects list will be shown below */}
+            </TabsContent>
+          </Tabs>
+        </div>
 
         {/* Projects List */}
         <Card className="shadow-soft">
