@@ -1,5 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, lazy, Suspense, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useRealtimeProjects } from "@/hooks/useRealtimeProjects";
 import { 
   Search, 
   Building2, 
@@ -21,9 +21,11 @@ import {
   AlertCircle,
   ExternalLink,
   Map as MapIcon,
-  List
+  List,
+  RefreshCw,
+  Wifi
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 
 // Lazy load map component to improve initial page load
 const ProjectMap = lazy(() => import("@/components/ProjectMap"));
@@ -82,8 +84,6 @@ const PROJECT_TYPES = [
 ];
 
 export default function Projects() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [selectedPhase, setSelectedPhase] = useState("all");
@@ -91,44 +91,28 @@ export default function Projects() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
 
-  useEffect(() => {
-    fetchProjects();
-  }, [selectedType, selectedPhase, selectedState]);
+  // Use realtime hook for live updates
+  const { 
+    projects, 
+    isLoading, 
+    lastUpdate,
+    refetch 
+  } = useRealtimeProjects({
+    enabled: true,
+    filters: {
+      type: selectedType,
+      phase: selectedPhase,
+      state: selectedState,
+    },
+  });
 
-  const fetchProjects = async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from("infrastructure_projects")
-        .select("*")
-        .eq("is_active", true)
-        .order("notification_date", { ascending: false });
-
-      if (selectedType !== "all") {
-        query = query.eq("project_type", selectedType as "highway" | "metro" | "railway" | "airport" | "industrial" | "smart_city" | "port" | "power_plant");
-      }
-      if (selectedPhase !== "all") {
-        query = query.eq("project_phase", selectedPhase as "proposed" | "feasibility_study" | "dpr_preparation" | "approved" | "land_notification" | "tender_floated" | "construction_started" | "ongoing" | "completed");
-      }
-      if (selectedState !== "all") {
-        query = query.eq("state", selectedState);
-      }
-
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filteredProjects = projects.filter(project =>
-    project.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.state.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter projects by search query
+  const filteredProjects = useMemo(() => {
+    return projects.filter(project =>
+      project.project_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.state.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [projects, searchQuery]);
 
   const getPhaseColor = (phase: string) => {
     const colors: Record<string, string> = {
@@ -150,12 +134,36 @@ export default function Projects() {
       <Header />
       
       <main className="flex-1 container py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Infrastructure Projects</h1>
-          <p className="text-muted-foreground">
-            Browse and search government infrastructure projects across India that may affect land acquisition.
-          </p>
+        {/* Page Header with Realtime Status */}
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Infrastructure Projects</h1>
+            <p className="text-muted-foreground">
+              Browse and search government infrastructure projects across India that may affect land acquisition.
+            </p>
+          </div>
+          
+          {/* Realtime Status Indicator */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-success/10 border border-success/20">
+              <Wifi className="h-3.5 w-3.5 text-success animate-pulse" />
+              <span className="text-xs font-medium text-success">Live Updates</span>
+            </div>
+            {lastUpdate && (
+              <span className="text-xs text-muted-foreground">
+                Updated {formatDistanceToNow(lastUpdate, { addSuffix: true })}
+              </span>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={refetch}
+              className="h-8 w-8"
+              title="Refresh projects"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
