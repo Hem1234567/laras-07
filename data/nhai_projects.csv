@@ -1,0 +1,6 @@
+project_name,project_code,total_length_km,state,budget_crores,project_type,project_phase,alignment_geojson,data_source,last_updated_from_source
+Delhi-Mumbai Expressway,NHAI-FB-Delhi-Mumbai-Expressway,1350.0,Rajasthan,100000.0,highway,construction_started,"{'type': 'Point', 'coordinates': [76.622634, 27.0486004]}",Real World Data (Fallback),2026-02-09T22:30:33.502825
+Bangalore-Chennai Expressway,NHAI-FB-Bangalore-Chennai-Expressway,262.0,Karnataka,17000.0,highway,construction_started,"{'type': 'Point', 'coordinates': [77.4927727, 13.0504205]}",Real World Data (Fallback),2026-02-09T22:30:34.562773
+Dwarka Expressway,NHAI-FB-Dwarka-Expressway,29.0,Delhi,9000.0,highway,construction_started,"{'type': 'Point', 'coordinates': [77.0379434, 28.5401014]}",Real World Data (Fallback),2026-02-09T22:30:35.370943
+Mumbai-Nagpur Expressway,NHAI-FB-Mumbai-Nagpur-Expressway,701.0,Maharashtra,55000.0,highway,construction_started,"{'type': 'Point', 'coordinates': [78.9950187, 21.0180691]}",Real World Data (Fallback),2026-02-09T22:30:36.544452
+Ganga Expressway,NHAI-FB-Ganga-Expressway,594.0,Uttar Pradesh,36000.0,highway,construction_started,"{'type': 'Point', 'coordinates': [81.7018857, 25.7086256]}",Real World Data (Fallback),2026-02-09T22:30:37.479230

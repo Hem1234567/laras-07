@@ -1,0 +1,11 @@
+requests
+beautifulsoup4
+pandas
+sqlalchemy
+selenium
+webdriver-manager
+pdfplumber
+openpyxl
+geopy
+python-dotenv
+supabase

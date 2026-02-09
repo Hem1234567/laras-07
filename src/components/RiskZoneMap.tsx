@@ -4,13 +4,17 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { AlertTriangle, Shield, MapPin } from "lucide-react";
 
-// Fix for default marker icons
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-  iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-});
+// Fix for default marker icons - moved to a function to function safely
+const fixLeafletIcons = () => {
+  if (typeof window !== 'undefined') {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+      iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+    });
+  }
+};
 
 interface NearbyProject {
   id: string;
@@ -107,28 +111,45 @@ const createNearbyProjectMarker = (type: string) => {
 };
 
 // Map auto-center component
-function MapBoundsUpdater({ 
-  center, 
+function MapBoundsUpdater({
+  center,
   nearbyProjects,
-  propertyCoords 
-}: { 
-  center: [number, number]; 
+  propertyCoords
+}: {
+  center: [number, number];
   nearbyProjects: NearbyProject[];
   propertyCoords: [number, number];
 }) {
   const map = useMap();
-  
+
   useEffect(() => {
-    if (nearbyProjects.length > 0) {
+    if (!map) return;
+
+    // Safety check for valid center
+    if (!Array.isArray(center) || center.length !== 2 || isNaN(center[0]) || isNaN(center[1])) {
+      console.warn("Invalid map center:", center);
+      return;
+    }
+
+    if (nearbyProjects && nearbyProjects.length > 0) {
       // Calculate bounds to include all nearby projects
-      const maxDistance = Math.max(...nearbyProjects.map(p => p.distance), 5);
+      const distances = nearbyProjects.map(p => p.distance).filter(d => !isNaN(d));
+      const maxDistance = distances.length > 0 ? Math.max(...distances) : 5;
       const zoom = maxDistance > 10 ? 9 : maxDistance > 5 ? 10 : 11;
-      map.setView(center, zoom);
+      try {
+        map.setView(center, zoom);
+      } catch (e) {
+        console.error("Error setting map view:", e);
+      }
     } else {
-      map.setView(center, 12);
+      try {
+        map.setView(center, 12);
+      } catch (e) {
+        console.error("Error setting map view:", e);
+      }
     }
   }, [center, nearbyProjects, map]);
-  
+
   return null;
 }
 
@@ -141,6 +162,10 @@ export function RiskZoneMap({
   height = "400px",
 }: RiskZoneMapProps) {
   const center: [number, number] = [latitude, longitude];
+
+  useEffect(() => {
+    fixLeafletIcons();
+  }, []);
 
   const getRiskZoneStyle = (level: string) => {
     const styles: Record<string, { color: string; fillColor: string; fillOpacity: number }> = {
@@ -175,8 +200,8 @@ export function RiskZoneMap({
           )}
           <div>
             <p className="text-xs text-muted-foreground">Risk Score</p>
-            <p className="font-bold text-lg" style={{ 
-              color: `var(--risk-${riskLevel})` 
+            <p className="font-bold text-lg" style={{
+              color: `var(--risk-${riskLevel})`
             }}>
               {riskScore.toFixed(1)}%
             </p>
@@ -201,8 +226,8 @@ export function RiskZoneMap({
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
 
-        <MapBoundsUpdater 
-          center={center} 
+        <MapBoundsUpdater
+          center={center}
           nearbyProjects={nearbyProjects}
           propertyCoords={center}
         />
@@ -263,8 +288,8 @@ export function RiskZoneMap({
       {/* Add CSS for animations */}
       <style>{`
         @keyframes propertyPulse {
-          0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 0 rgba(var(--primary), 0.4); }
-          50% { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 15px rgba(var(--primary), 0); }
+          0%, 100% { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 0 hsl(var(--primary) / 0.4); }
+          50% { box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 15px hsl(var(--primary) / 0); }
         }
         .property-marker {
           background: transparent !important;

@@ -34,8 +34,8 @@ interface UseRealtimeProjectsOptions {
 }
 
 export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
-  const { 
-    enabled = true, 
+  const {
+    enabled = true,
     filters = {},
     onNewProject,
     onUpdateProject,
@@ -93,17 +93,17 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
       switch (payload.eventType) {
         case "INSERT": {
           const newProject = payload.new as Project;
-          
+
           // Check if project matches current filters
           if (newProject.is_active) {
-            const matchesFilters = 
+            const matchesFilters =
               (!filters.type || filters.type === "all" || newProject.project_type === filters.type) &&
               (!filters.phase || filters.phase === "all" || newProject.project_phase === filters.phase) &&
               (!filters.state || filters.state === "all" || newProject.state === filters.state);
 
             if (matchesFilters) {
               setProjects(prev => [newProject, ...prev]);
-              
+
               toast.success("New Project Added", {
                 description: `${newProject.project_name} has been added to the map`,
                 duration: 4000,
@@ -117,12 +117,12 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
 
         case "UPDATE": {
           const updatedProject = payload.new as Project;
-          
+
           setProjects(prev => {
             const index = prev.findIndex(p => p.id === updatedProject.id);
-            
+
             // Check if still matches filters
-            const matchesFilters = 
+            const matchesFilters =
               updatedProject.is_active &&
               (!filters.type || filters.type === "all" || updatedProject.project_type === filters.type) &&
               (!filters.phase || filters.phase === "all" || updatedProject.project_phase === filters.phase) &&
@@ -142,7 +142,7 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
               // Add to list (now matches filters)
               return [updatedProject, ...prev];
             }
-            
+
             return prev;
           });
 
@@ -159,7 +159,7 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
           const deletedId = payload.old?.id;
           if (deletedId) {
             setProjects(prev => prev.filter(p => p.id !== deletedId));
-            
+
             toast.info("Project Removed", {
               description: "A project has been removed from the map",
               duration: 3000,
@@ -171,7 +171,7 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
         }
       }
     },
-    [filters, onNewProject, onUpdateProject, onDeleteProject]
+    [filters.type, filters.phase, filters.state, onNewProject, onUpdateProject, onDeleteProject]
   );
 
   // Set up realtime subscription
@@ -183,7 +183,7 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
 
     // Subscribe to realtime changes
     console.log("[Realtime] Setting up subscription for infrastructure_projects");
-    
+
     const channel = supabase
       .channel("infrastructure_projects_changes")
       .on(
@@ -209,12 +209,7 @@ export function useRealtimeProjects(options: UseRealtimeProjectsOptions = {}) {
     };
   }, [enabled, fetchProjects, handleRealtimeChange]);
 
-  // Refetch when filters change
-  useEffect(() => {
-    if (enabled) {
-      fetchProjects();
-    }
-  }, [filters.type, filters.phase, filters.state, enabled, fetchProjects]);
+
 
   return {
     projects,
