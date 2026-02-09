@@ -10,13 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { 
-  MapPin, 
-  Bell, 
-  FileText, 
-  Plus, 
-  Trash2, 
-  Clock, 
+import {
+  MapPin,
+  Bell,
+  FileText,
+  Plus,
+  Trash2,
+  Clock,
   Building2,
   ArrowRight,
   Loader2,
@@ -104,8 +104,8 @@ export default function Dashboard() {
         .eq("id", alertId);
 
       if (error) throw error;
-      
-      setAlerts(alerts.map(alert => 
+
+      setAlerts(alerts.map(alert =>
         alert.id === alertId ? { ...alert, is_active: !currentStatus } : alert
       ));
     } catch (error) {
@@ -121,7 +121,7 @@ export default function Dashboard() {
         .eq("id", alertId);
 
       if (error) throw error;
-      
+
       setAlerts(alerts.filter(alert => alert.id !== alertId));
     } catch (error) {
       console.error("Error deleting alert:", error);
@@ -142,7 +142,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
       <Header />
-      
+
       <main className="flex-1 container py-8">
         {/* Welcome Section */}
         <div className="mb-8">
@@ -167,7 +167,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -181,7 +181,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -195,7 +195,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft bg-primary text-primary-foreground">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -268,7 +268,8 @@ export default function Dashboard() {
                     {recentAssessments.map((assessment) => (
                       <div
                         key={assessment.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => navigate(`/assess/${assessment.id}`)}
                       >
                         <div className="flex items-center gap-4">
                           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -327,7 +328,8 @@ export default function Dashboard() {
                     {savedAssessments.map((assessment) => (
                       <div
                         key={assessment.id}
-                        className="p-4 rounded-lg border hover:shadow-soft transition-all"
+                        className="p-4 rounded-lg border hover:shadow-soft transition-all cursor-pointer"
+                        onClick={() => navigate(`/assess/${assessment.id}`)}
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div>
@@ -387,12 +389,10 @@ export default function Dashboard() {
                         className="flex items-center justify-between p-4 rounded-lg border"
                       >
                         <div className="flex items-center gap-4">
-                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
-                            alert.is_active ? "bg-accent/10" : "bg-muted"
-                          }`}>
-                            <Bell className={`h-5 w-5 ${
-                              alert.is_active ? "text-accent" : "text-muted-foreground"
-                            }`} />
+                          <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${alert.is_active ? "bg-accent/10" : "bg-muted"
+                            }`}>
+                            <Bell className={`h-5 w-5 ${alert.is_active ? "text-accent" : "text-muted-foreground"
+                              }`} />
                           </div>
                           <div>
                             <p className="font-medium capitalize">

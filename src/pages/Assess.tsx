@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -86,6 +86,7 @@ const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
 
 export default function Assess() {
   const { user } = useAuth();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -104,6 +105,67 @@ export default function Assess() {
 
   const [result, setResult] = useState<AssessmentResult | null>(null);
   const [savedAssessmentId, setSavedAssessmentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      fetchAssessment(id);
+    }
+  }, [id]);
+
+  const fetchAssessment = async (assessmentId: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("property_assessments")
+        .select("*")
+        .eq("id", assessmentId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          state: data.state,
+          district: data.district || "",
+          city: data.city || "",
+          locality: data.locality || "",
+          propertyType: data.property_type as PropertyType,
+          propertySize: data.property_size?.toString() || "",
+        });
+
+        // Parse JSON fields safely
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nearbyProjects = (typeof data.nearby_projects === 'string'
+          ? JSON.parse(data.nearby_projects)
+          : data.nearby_projects) as NearbyProject[];
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const recommendations = (typeof data.recommendations === 'string'
+          ? JSON.parse(data.recommendations)
+          : data.recommendations) as string[];
+
+        setResult({
+          risk_score: data.risk_score || 0,
+          risk_level: (data.risk_level as RiskLevelType) || "low",
+          nearby_projects: nearbyProjects || [],
+          recommendations: recommendations || [],
+        });
+
+        setSavedAssessmentId(data.id);
+        setStep(3);
+      }
+    } catch (error) {
+      console.error("Error fetching assessment:", error);
+      toast({
+        title: "Error",
+        description: "Could not load assessment details.",
+        variant: "destructive",
+      });
+      navigate("/assess");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Cascading Data Logic
   const selectedStateData = useMemo(() =>
@@ -740,6 +802,7 @@ Disclaimer: This report is generated based on publicly available data and is for
               {/* Start New */}
               <div className="text-center">
                 <Button variant="outline" onClick={() => {
+                  navigate("/assess");
                   setStep(1); setResult(null); setSavedAssessmentId(null);
                   setFormData({ state: "", district: "", city: "", locality: "", propertyType: "", propertySize: "" });
                 }}>Start New Assessment</Button>
