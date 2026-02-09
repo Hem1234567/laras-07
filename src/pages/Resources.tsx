@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DATA_SOURCES, SourceCategory } from "@/data/external_sources";
 import {
   FileText,
   Scale,
@@ -18,7 +19,9 @@ import {
   HelpCircle,
   Calculator,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Database,
+  Globe
 } from "lucide-react";
 
 interface Guide {
@@ -154,6 +157,13 @@ export default function Resources() {
     totalCompensation: number
   } | null>(null);
 
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+
+  const categories = ["All", ...new Set(DATA_SOURCES.map(s => s.category))];
+  const filteredSources = selectedCategory === "All"
+    ? DATA_SOURCES
+    : DATA_SOURCES.filter(s => s.category === selectedCategory);
+
   const handleDownloadTemplate = (template: typeof templates[0]) => {
     const blob = new Blob([template.content], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
@@ -209,31 +219,86 @@ export default function Resources() {
       <main className="flex-1 container py-8">
         {/* Page Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Legal Resources</h1>
+          <h1 className="text-3xl font-bold mb-2">Legal Resources & Data</h1>
           <p className="text-muted-foreground">
-            Official government acts, guides, and templates to help you understand your rights.
+            Official government acts, guides, tools, and direct access to 30+ infrastructure data portals.
           </p>
         </div>
 
-        <Tabs defaultValue="guides" className="space-y-6">
-          <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-4 gap-2">
-            <TabsTrigger value="guides" className="gap-2">
-              <BookOpen className="h-4 w-4" />
-              Acts & Guides
-            </TabsTrigger>
-            <TabsTrigger value="faqs" className="gap-2">
-              <HelpCircle className="h-4 w-4" />
-              FAQs
-            </TabsTrigger>
-            <TabsTrigger value="templates" className="gap-2">
-              <FileText className="h-4 w-4" />
-              Templates
-            </TabsTrigger>
-            <TabsTrigger value="calculator" className="gap-2">
-              <Calculator className="h-4 w-4" />
-              Calculator
-            </TabsTrigger>
-          </TabsList>
+        <Tabs defaultValue="directory" className="space-y-6">
+          <div className="overflow-x-auto pb-2">
+            <TabsList className="min-w-max">
+              <TabsTrigger value="directory" className="gap-2">
+                <Database className="h-4 w-4" />
+                Data Directory (30+)
+              </TabsTrigger>
+              <TabsTrigger value="guides" className="gap-2">
+                <BookOpen className="h-4 w-4" />
+                Acts & Guides
+              </TabsTrigger>
+              <TabsTrigger value="calculator" className="gap-2">
+                <Calculator className="h-4 w-4" />
+                Calculator
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Templates
+              </TabsTrigger>
+              <TabsTrigger value="faqs" className="gap-2">
+                <HelpCircle className="h-4 w-4" />
+                FAQs
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Data Directory Tab (New) */}
+          <TabsContent value="directory">
+            <div className="space-y-6">
+              <Card className="shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Globe className="h-5 w-5" />
+                    National & State Data Links
+                  </CardTitle>
+                  <CardDescription>
+                    Direct links to official sources for projects, gazettes, and land records.
+                  </CardDescription>
+                  <div className="pt-4">
+                    <Label className="mb-2 block">Filter by Category</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {categories.map(cat => (
+                        <Badge
+                          key={cat as string}
+                          variant={selectedCategory === cat ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => setSelectedCategory(cat as string)}
+                        >
+                          {cat as string}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredSources.map((source, idx) => (
+                      <div key={idx} className="flex flex-col justify-between p-4 rounded-lg border hover:bg-muted/50 transition-colors group">
+                        <div>
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">{source.name}</h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground mb-3">{source.description}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="w-full gap-2 text-xs" onClick={() => window.open(source.url, '_blank')}>
+                          Visit Portal <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
 
           {/* Guides Tab */}
           <TabsContent value="guides">
@@ -259,8 +324,6 @@ export default function Resources() {
                 </Card>
               ))}
             </div>
-
-            {/* Important Notice */}
             <Card className="mt-6 border-warning/50 bg-warning/5">
               <CardContent className="pt-6">
                 <div className="flex gap-4">
@@ -268,8 +331,7 @@ export default function Resources() {
                   <div>
                     <h4 className="font-semibold mb-1">Disclaimer</h4>
                     <p className="text-sm text-muted-foreground">
-                      Links provided direct to official government websites (legislative.gov.in, morth.nic.in, etc.).
-                      We are not responsible for content changes on external sites.
+                      Links provided direct to official government websites. We are not responsible for content changes on external sites.
                     </p>
                   </div>
                 </div>
@@ -343,7 +405,7 @@ export default function Resources() {
             </Card>
           </TabsContent>
 
-          {/* Calculator Tab - Implemented */}
+          {/* Calculator Tab */}
           <TabsContent value="calculator">
             <div className="grid md:grid-cols-2 gap-6">
               <Card className="shadow-soft">
