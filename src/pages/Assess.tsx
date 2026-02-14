@@ -28,6 +28,7 @@ import {
   FileText,
   Map as MapIcon,
 } from "lucide-react";
+import { INFRASTRUCTURE_PROJECTS } from "@/data/infrastructure_projects";
 
 // Lazy load map component
 const RiskZoneMap = lazy(() => import("@/components/RiskZoneMap"));
@@ -43,6 +44,7 @@ interface NearbyProject {
   distance_km: number;
   buffer_distance_meters: number;
   riskContribution?: number;
+  coordinates?: [number, number][];
 }
 
 interface AssessmentResult {
@@ -50,6 +52,7 @@ interface AssessmentResult {
   risk_level: RiskLevelType;
   nearby_projects: NearbyProject[];
   recommendations: string[];
+  user_coordinates?: [number, number];
 }
 
 // State coordinates for map visualization (Fallback)
@@ -223,6 +226,43 @@ export default function Assess() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  // Geocoding Function using OpenStreetMap Nominatim
+  const fetchCoordinates = async (address: string): Promise<[number, number] | null> => {
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+      const data = await response.json();
+      if (data && data.length > 0) {
+        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      }
+    } catch (error) {
+      console.error("Geocoding error:", error);
+    }
+    return null;
+  };
+
+  // Calculate distance from point P to line segment AB
+  const distToSegment = (p: [number, number], v: [number, number], w: [number, number]) => {
+    const l2 = (v[0] - w[0]) ** 2 + (v[1] - w[1]) ** 2;
+    if (l2 === 0) return ((p[0] - v[0]) ** 2 + (p[1] - v[1]) ** 2) ** 0.5; // v == w case
+    let t = ((p[0] - v[0]) * (w[0] - v[0]) + (p[1] - v[1]) * (w[1] - v[1])) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projectionLat = v[0] + t * (w[0] - v[0]);
+    const projectionLon = v[1] + t * (w[1] - v[1]);
+
+    // Use Haversine for the final distance from point to projection
+    return calculateDistance(p[0], p[1], projectionLat, projectionLon);
+  };
+
+  // Calculate minimum distance from point to a Polyline (array of points)
+  const calculateMinDistanceTopoly = (point: [number, number], poly: [number, number][]) => {
+    let minDesc = Infinity;
+    for (let i = 0; i < poly.length - 1; i++) {
+      const d = distToSegment(point, poly[i], poly[i + 1]);
+      if (d < minDesc) minDesc = d;
+    }
+    return minDesc;
+  };
+
   // Calculate Haversine distance between two points
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371; // Earth's radius in km
@@ -240,83 +280,72 @@ export default function Assess() {
   const calculateRisk = async () => {
     setIsLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // 1. Geocode the address
+      const addressString = `${formData.locality}, ${formData.city}, ${formData.district}, ${formData.state}, India`;
 
-      // Determine the best available coordinates
       let lat: number, lon: number;
-      if (selectedCityData && selectedCityData.lat && selectedCityData.lng) {
-        lat = selectedCityData.lat; // Precise city location
-        lon = selectedCityData.lng;
+      const coords = await fetchCoordinates(addressString);
+
+      if (coords) {
+        [lat, lon] = coords;
       } else {
-        [lat, lon] = getStateCoordinates(formData.state); // Fallback to state center
+        // Fallback to City/State center
+        if (selectedCityData && selectedCityData.lat && selectedCityData.lng) {
+          lat = selectedCityData.lat;
+          lon = selectedCityData.lng;
+        } else {
+          [lat, lon] = getStateCoordinates(formData.state);
+        }
+        toast({
+          title: "Precise Location Not Found",
+          description: "Using city/state center for estimation. Enter a more specific locality for better results.",
+          variant: "default"
+        });
       }
 
-      // Fetch nearby projects (filter by State primarily for DB efficiency)
-      const { data: projects, error } = await supabase
-        .from("infrastructure_projects")
-        .select("*")
-        .eq("state", formData.state)
-        .eq("is_active", true);
-
-      if (error) throw error;
-
-      // 1. Process projects to calculate real distance
-      const nearbyProjects: NearbyProject[] = (projects || []).map(p => {
-        let distance = 999;
-
-        if (p.alignment_geojson) {
-          try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const geojson = p.alignment_geojson as any;
-            if (geojson.type === 'Point' && Array.isArray(geojson.coordinates)) {
-              const [pLon, pLat] = geojson.coordinates;
-              distance = calculateDistance(lat, lon, pLat, pLon);
-            }
-            else if (geojson.latitude && geojson.longitude) {
-              distance = calculateDistance(lat, lon, geojson.latitude, geojson.longitude);
-            }
-          } catch (e) {
-            console.error("Error parsing geojson", e);
-          }
-        } else {
-          // Fallback for mock data or if geojson is missing
-          // Only use random distance if data_source is explicit mock, otherwise treat as far
-          if (p.data_source === 'Mock Data') distance = Math.random() * 20;
-        }
-
+      // 2. Fetch projects (Use Hardcoded "Real" alignments)
+      const detectedProjects: NearbyProject[] = INFRASTRUCTURE_PROJECTS.map(p => {
+        const dist = calculateMinDistanceTopoly([lat, lon], p.coordinates);
         return {
           id: p.id,
-          project_name: p.project_name,
-          project_type: p.project_type,
-          project_phase: p.project_phase,
-          distance_km: distance,
-          buffer_distance_meters: p.buffer_distance_meters || 500,
-          riskContribution: 0
+          project_name: p.name,
+          project_type: p.type,
+          project_phase: p.phase,
+          distance_km: dist,
+          buffer_distance_meters: p.buffer,
+          riskContribution: 0,
+          coordinates: p.coordinates
         };
-      }).filter(p => p.distance_km < 100); // Expanded filter radius to 100km to catch more projects
+      }).filter(p => p.distance_km < 50); // Filter relevant projects within 50km
 
-      // 2. Calculate Risk Score
+      // 3. Calculate Risk Score
       let riskScore = 10; // Base risk
 
       const phaseWeight: Record<string, number> = {
-        land_notification: 30, tender_floated: 25, construction_started: 20,
-        approved: 15, dpr_preparation: 10, proposed: 5, ongoing: 15, completed: 0,
+        land_notification: 40,
+        tender_floated: 30,
+        approved: 20,
+        proposed: 15,
+        under_construction: 25,
+        completed: 5,
       };
 
-      nearbyProjects.forEach(project => {
-        // Impact radius calculation
-        const impactRadius = 20; // Increased radius of influence
-        if (project.distance_km < impactRadius) {
-          const distanceFactor = (impactRadius - project.distance_km) / impactRadius;
-          const weight = phaseWeight[project.project_phase] || 10;
-          const contribution = weight * distanceFactor;
+      detectedProjects.forEach(p => {
+        let impactFactor = 0;
+        // Logic: closer = higher risk
+        if (p.distance_km < 0.5) impactFactor = 1.5; // Critical < 500m
+        else if (p.distance_km < 2.0) impactFactor = 1.0; // High < 2km
+        else if (p.distance_km < 5.0) impactFactor = 0.5; // Medium < 5km
 
-          project.riskContribution = Math.round(contribution);
+        if (impactFactor > 0) {
+          const weight = phaseWeight[p.project_phase] || 10;
+          const contribution = weight * impactFactor;
+          p.riskContribution = Math.round(contribution);
           riskScore += contribution;
         }
       });
 
-      riskScore = Math.min(100, Math.round(riskScore));
+      riskScore = Math.min(95, Math.round(riskScore));
 
       const riskLevel: RiskLevelType =
         riskScore <= 20 ? "very_low" :
@@ -327,24 +356,28 @@ export default function Assess() {
       // 3. Generate Recommendations
       const recommendations: string[] = [];
       if (riskScore > 60) {
-        recommendations.push("Consult with a property lawyer immediately.");
-        recommendations.push("Verify land acquisition notifications in local gazette.");
+        recommendations.push("High Risk Alert: Your property is in the direct influence zone of a major project.");
+        recommendations.push("Visit the local revenue office to check for Section 11 notifications.");
       } else if (riskScore > 30) {
-        recommendations.push("Monitor local news for infrastructure project announcements.");
-        recommendations.push("Check with local municipal body for development plans.");
+        recommendations.push("Moderate Risk: Infrastructure projects are planned nearby.");
+        recommendations.push("Keep track of local news regarding project expansion.");
+      } else {
+        recommendations.push("Low acquisition risk detected based on current data.");
       }
       recommendations.push("Ensure property title is clear and encumbrance-free.");
 
       setResult({
         risk_score: riskScore,
         risk_level: riskLevel,
-        nearby_projects: nearbyProjects,
+        nearby_projects: detectedProjects.sort((a, b) => a.distance_km - b.distance_km),
         recommendations: recommendations,
+        user_coordinates: [lat, lon]
       });
 
       setStep(3);
     } catch (error) {
       console.error("Error calculating risk:", error);
+      toast({ title: "Analysis Failed", description: "Please try again.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -740,8 +773,8 @@ Disclaimer: This report is generated based on publicly available data and is for
                   <ErrorBoundary name="RiskZoneMap">
                     <Suspense fallback={<div className="h-[400px] flex items-center justify-center bg-muted/20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
                       <RiskZoneMap
-                        latitude={getMapCoordinates()[0]}
-                        longitude={getMapCoordinates()[1]}
+                        latitude={result.user_coordinates ? result.user_coordinates[0] : getMapCoordinates()[0]}
+                        longitude={result.user_coordinates ? result.user_coordinates[1] : getMapCoordinates()[1]}
                         riskLevel={result.risk_level}
                         riskScore={result.risk_score}
                         nearbyProjects={result.nearby_projects.map(p => ({
@@ -750,7 +783,8 @@ Disclaimer: This report is generated based on publicly available data and is for
                           type: p.project_type,
                           phase: p.project_phase,
                           distance: p.distance_km,
-                          riskContribution: result.nearby_projects.length > 0 ? Math.round(100 / result.nearby_projects.length) : 0,
+                          riskContribution: p.riskContribution || 0,
+                          coordinates: p.coordinates
                         }))}
                         height="400px"
                       />

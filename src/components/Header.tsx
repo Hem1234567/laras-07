@@ -37,6 +37,9 @@ export function Header() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
+          <Link to="/calculator" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            Calculator
+          </Link>
           <Link to="/assess" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Risk Assessment
           </Link>
@@ -97,22 +100,29 @@ export function Header() {
       {mobileMenuOpen && (
         <div className="md:hidden border-t bg-background animate-slide-up">
           <nav className="container py-4 flex flex-col gap-2">
-            <Link 
-              to="/assess" 
+            <Link
+              to="/calculator"
+              className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Calculator
+            </Link>
+            <Link
+              to="/assess"
               className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Risk Assessment
             </Link>
-            <Link 
-              to="/projects" 
+            <Link
+              to="/projects"
               className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Projects
             </Link>
-            <Link 
-              to="/resources" 
+            <Link
+              to="/resources"
               className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -121,14 +131,14 @@ export function Header() {
             <div className="border-t my-2" />
             {user ? (
               <>
-                <Link 
-                  to="/dashboard" 
+                <Link
+                  to="/dashboard"
                   className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Dashboard
                 </Link>
-                <button 
+                <button
                   className="px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors text-left"
                   onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
                 >
@@ -137,15 +147,15 @@ export function Header() {
               </>
             ) : (
               <>
-                <Link 
-                  to="/auth" 
+                <Link
+                  to="/auth"
                   className="px-4 py-2 text-sm font-medium hover:bg-secondary rounded-lg transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Sign In
                 </Link>
-                <Link 
-                  to="/auth?mode=signup" 
+                <Link
+                  to="/auth?mode=signup"
                   className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-lg text-center"
                   onClick={() => setMobileMenuOpen(false)}
                 >

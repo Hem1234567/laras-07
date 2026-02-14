@@ -1,0 +1,77 @@
+
+-- Insert sample infrastructure projects
+INSERT INTO public.infrastructure_projects (
+    project_name, 
+    project_code, 
+    project_type, 
+    state, 
+    districts_covered, 
+    cities_affected, 
+    project_phase, 
+    budget_crores, 
+    total_length_km, 
+    notification_date, 
+    expected_completion_date, 
+    implementing_agency, 
+    is_active
+) VALUES 
+(
+    'Chennai Metro Phase 2',
+    'CMRL-PH2',
+    'metro',
+    'Tamil Nadu',
+    ARRAY['Chennai', 'Kancheepuram', 'Tiruvallur'],
+    ARRAY['Chennai'],
+    'ongoing',
+    61843,
+    118.9,
+    '2021-02-01',
+    '2026-12-31',
+    'Chennai Metro Rail Limited (CMRL)',
+    true
+),
+(
+    'Mumbai-Ahmedabad High Speed Rail',
+    'MAHSR',
+    'railway',
+    'Maharashtra',
+    ARRAY['Mumbai', 'Thane', 'Palghar'],
+    ARRAY['Mumbai', 'Thane', 'Boisar'],
+    'construction_started',
+    110000,
+    508,
+    '2017-09-14',
+    '2027-08-15',
+    'NHSRCL',
+    true
+),
+(
+    'Bangalore Suburban Rail Project',
+    'BSRP',
+    'railway',
+    'Karnataka',
+    ARRAY['Bangalore Urban', 'Bangalore Rural'],
+    ARRAY['Bangalore'],
+    'approved',
+    15767,
+    148,
+    '2020-10-21',
+    '2026-10-01',
+    'K-RIDE',
+    true
+),
+(
+    'Greenfield International Airport, Parandur',
+    'GIA-PAR',
+    'airport',
+    'Tamil Nadu',
+    ARRAY['Kancheepuram'],
+    ARRAY['Parandur'],
+    'land_notification',
+    20000,
+    NULL,
+    '2022-08-01',
+    '2029-01-01',
+    'TIDCO',
+    true
+);

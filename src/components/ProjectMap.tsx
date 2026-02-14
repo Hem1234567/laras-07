@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ L.Icon.Default.mergeOptions({
 interface Project {
   id: string;
   project_name: string;
+  project_code: string | null;
   project_type: string;
   project_phase: string;
   state: string;
@@ -114,7 +115,7 @@ const getStateCoordinates = (state: string): [number, number] => {
     "Assam": [26.2006, 92.9376],
     "Goa": [15.2993, 74.1240],
   };
-  
+
   // Add some randomness to prevent overlapping markers
   const base = stateCoords[state] || [20.5937, 78.9629];
   return [
@@ -160,11 +161,60 @@ const getRiskZoneColor = (phase: string) => {
   return { color: "#22c55e", fillColor: "#22c55e", fillOpacity: 0.08 }; // Low
 };
 
-export function ProjectMap({ 
-  projects, 
-  onProjectSelect, 
+// Hardcoded alignment data for specific projects to show "Real" lines
+// This overrides the simple point data from the database for visual demonstration
+const PROJECT_ALIGNMENTS: Record<string, [number, number][]> = {
+  // Mumbai Trans Harbour Link (MTHL-01) - Actual bridge path
+  "MTHL-01": [
+    [18.9986, 72.8569], // Sewri
+    [18.9910, 72.8800],
+    [18.9800, 72.9200],
+    [18.9680, 72.9500],
+    [18.9550, 72.9800],
+    [18.9480, 73.0030], // Chirle
+  ],
+  // Chennai Metro Phase 2 (CMRL-PH2) - Approximate Corridor 3 & 5
+  "CMRL-PH2": [
+    [13.1537, 80.2319], // Madhavaram
+    [13.0827, 80.2707], // Central
+    [13.0400, 80.2600], // Mylapore
+    [12.9904, 80.2173], // Alandur
+    [12.9500, 80.2000],
+    [12.8340, 80.2223], // Sholinganallur
+    [12.7874, 80.2222], // SIPCOT
+  ],
+  // Delhi-Mumbai Expressway (DME-01) - Simplified path
+  "DME-01": [
+    [28.2800, 77.0700], // Sohna / NCR
+    [27.5000, 76.5000],
+    [26.9100, 75.7800], // Jaipur
+    [25.1800, 75.8300], // Kota
+    [23.1800, 75.7700],
+    [22.3000, 73.1800], // Vadodara
+    [21.1700, 72.8300], // Surat
+    [19.2100, 72.9700], // Virar / Mumbai
+  ],
+  // Mumbai-Ahmedabad Bullet Train (MAHSR-BULLET)
+  "MAHSR-BULLET": [
+    [23.0225, 72.5714], // Ahmedabad
+    [22.3072, 73.1812], // Vadodara
+    [21.1702, 72.8311], // Surat
+    [20.3893, 72.9106], // Vapi
+    [19.0760, 72.8777], // Mumbai BKC
+  ],
+  // Bangalore Suburban Rail (BSRP-KA)
+  "BSRP-KA": [
+    [13.2000, 77.5000],
+    [12.9716, 77.5946], // Majestic
+    [12.8500, 77.6500], // Electronics City
+  ]
+};
+
+export function ProjectMap({
+  projects,
+  onProjectSelect,
   selectedProjectId,
-  height = "400px" 
+  height = "400px"
 }: ProjectMapProps) {
   const [projectCoords, setProjectCoords] = useState<Record<string, [number, number]>>({});
   const [mapCenter, setMapCenter] = useState<[number, number]>([20.5937, 78.9629]);
@@ -267,15 +317,40 @@ export function ProjectMap({
           const isSelected = project.id === selectedProjectId;
           const bufferDistance = project.buffer_distance_meters || 5000;
           const riskZoneStyle = getRiskZoneColor(project.project_phase);
+          const alignment = project.project_code ? PROJECT_ALIGNMENTS[project.project_code] : null;
 
           return (
             <div key={project.id}>
-              {/* Risk zone circle */}
-              <Circle
-                center={coords}
-                radius={bufferDistance}
-                pathOptions={riskZoneStyle}
-              />
+              {/* Show LineString alignment if available (Highways/Metro) */}
+              {alignment && (
+                <>
+                  <Polyline
+                    positions={alignment}
+                    pathOptions={{
+                      color: project.project_type === 'highway' ? '#f59e0b' :
+                        project.project_type === 'metro' ? '#8b5cf6' :
+                          project.project_type === 'railway' ? '#3b82f6' : '#6b7280',
+                      weight: isSelected ? 6 : 4,
+                      opacity: 0.8,
+                      dashArray: project.project_phase === 'proposed' ? '10, 10' : undefined
+                    }}
+                  />
+                  {/* Also show buffer around the line for accurate risk viz? 
+                      For now keeping simple circle around center, but ideally buffer should be around line 
+                  */}
+                </>
+              )}
+
+              {/* Risk zone circle - Only show if NO alignment line, or maybe show smaller? 
+                  If we have a line, the circle might mimic a specific "center" or "notification area"
+              */}
+              {!alignment && (
+                <Circle
+                  center={coords}
+                  radius={bufferDistance}
+                  pathOptions={riskZoneStyle}
+                />
+              )}
 
               {/* Project marker */}
               <Marker

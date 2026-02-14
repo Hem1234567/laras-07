@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Circle, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Circle, Popup, useMap, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { AlertTriangle, Shield, MapPin } from "lucide-react";
+import { AlertTriangle, Shield } from "lucide-react";
 
 // Fix for default marker icons - moved to a function to function safely
 const fixLeafletIcons = () => {
@@ -23,6 +23,7 @@ interface NearbyProject {
   phase: string;
   distance: number;
   riskContribution: number;
+  coordinates?: [number, number][]; // Real path
 }
 
 interface RiskZoneMapProps {
@@ -72,7 +73,7 @@ const createPropertyMarker = (riskLevel: string) => {
   });
 };
 
-// Project marker for nearby projects
+// Project marker for nearby projects (Fallback for Point projects)
 const createNearbyProjectMarker = (type: string) => {
   const icons: Record<string, string> = {
     highway: "🛣️",
@@ -114,39 +115,38 @@ const createNearbyProjectMarker = (type: string) => {
 function MapBoundsUpdater({
   center,
   nearbyProjects,
-  propertyCoords
 }: {
   center: [number, number];
   nearbyProjects: NearbyProject[];
-  propertyCoords: [number, number];
 }) {
   const map = useMap();
 
   useEffect(() => {
     if (!map) return;
 
-    // Safety check for valid center
-    if (!Array.isArray(center) || center.length !== 2 || isNaN(center[0]) || isNaN(center[1])) {
-      console.warn("Invalid map center:", center);
+    // Create bounds including user location
+    const bounds = L.latLngBounds([center]);
+
+    // Extend bounds to include projects
+    let hasProjects = false;
+    nearbyProjects.forEach(p => {
+      if (p.coordinates && p.coordinates.length > 0) {
+        p.coordinates.forEach(coord => bounds.extend(coord));
+        hasProjects = true;
+      }
+    });
+
+    // If no projects or projects are too far, provide default view
+    if (!hasProjects) {
+      map.setView(center, 13);
       return;
     }
 
-    if (nearbyProjects && nearbyProjects.length > 0) {
-      // Calculate bounds to include all nearby projects
-      const distances = nearbyProjects.map(p => p.distance).filter(d => !isNaN(d));
-      const maxDistance = distances.length > 0 ? Math.max(...distances) : 5;
-      const zoom = maxDistance > 10 ? 9 : maxDistance > 5 ? 10 : 11;
-      try {
-        map.setView(center, zoom);
-      } catch (e) {
-        console.error("Error setting map view:", e);
-      }
-    } else {
-      try {
-        map.setView(center, 12);
-      } catch (e) {
-        console.error("Error setting map view:", e);
-      }
+    try {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    } catch (e) {
+      console.error("Error setting map bounds:", e);
+      map.setView(center, 12);
     }
   }, [center, nearbyProjects, map]);
 
@@ -176,16 +176,6 @@ export function RiskZoneMap({
       very_low: { color: "#22c55e", fillColor: "#22c55e", fillOpacity: 0.1 },
     };
     return styles[level] || styles.medium;
-  };
-
-  // Generate mock positions for nearby projects (in a real app, these would come from the database)
-  const getProjectPosition = (project: NearbyProject, index: number): [number, number] => {
-    const angle = (index * 137.5 * Math.PI) / 180; // Golden angle distribution
-    const distance = project.distance * 0.01; // Convert km to approximate degrees
-    return [
-      latitude + Math.cos(angle) * distance,
-      longitude + Math.sin(angle) * distance,
-    ];
   };
 
   return (
@@ -229,20 +219,19 @@ export function RiskZoneMap({
         <MapBoundsUpdater
           center={center}
           nearbyProjects={nearbyProjects}
-          propertyCoords={center}
         />
 
-        {/* Risk zone circles - multiple rings for visual effect */}
-        {[1, 0.7, 0.4].map((scale, idx) => (
+        {/* User Risk Zone Circles (Visual only) */}
+        {[1, 0.6].map((scale, idx) => (
           <Circle
             key={idx}
             center={center}
-            radius={5000 * scale}
+            radius={2000 * scale}
             pathOptions={{
               ...getRiskZoneStyle(riskLevel),
-              fillOpacity: getRiskZoneStyle(riskLevel).fillOpacity * (1 - idx * 0.3),
-              weight: idx === 0 ? 2 : 1,
-              dashArray: idx === 0 ? undefined : "5, 5",
+              fillOpacity: 0.1,
+              weight: 1,
+              dashArray: "5, 5",
             }}
           />
         ))}
@@ -260,29 +249,47 @@ export function RiskZoneMap({
           </Popup>
         </Marker>
 
-        {/* Nearby project markers */}
-        {nearbyProjects.map((project, index) => {
-          const position = getProjectPosition(project, index);
-          return (
-            <Marker
-              key={project.id}
-              position={position}
-              icon={createNearbyProjectMarker(project.type)}
-            >
-              <Popup>
-                <div className="min-w-[180px] p-1">
-                  <h3 className="font-semibold text-sm">{project.name}</h3>
-                  <div className="space-y-1 text-xs text-muted-foreground mt-1">
-                    <p className="capitalize">Type: {project.type.replace("_", " ")}</p>
-                    <p className="capitalize">Phase: {project.phase.replace("_", " ")}</p>
-                    <p>Distance: {project.distance.toFixed(1)} km</p>
-                    <p>Risk Contribution: {project.riskContribution}%</p>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+        {/* Nearby project markers & lines */}
+        {nearbyProjects.map((project) => (
+          <div key={project.id}>
+            {project.coordinates && project.coordinates.length > 1 ? (
+              <>
+                <Polyline
+                  positions={project.coordinates}
+                  pathOptions={{
+                    color: project.type === 'highway' ? '#f59e0b' : project.type === 'metro' ? '#8b5cf6' : '#3b82f6',
+                    weight: 5,
+                    opacity: 0.8
+                  }}
+                >
+                  <Popup>
+                    <div className="p-1">
+                      <h3 className="font-semibold text-sm">{project.name}</h3>
+                      <p className="text-xs capitalize">{project.type} • {project.phase}</p>
+                      <p className="text-xs">Dist: {project.distance.toFixed(1)} km</p>
+                    </div>
+                  </Popup>
+                </Polyline>
+              </>
+            ) : (
+              // Render as simple Marker if no coordinates line string
+              project.coordinates && project.coordinates.length === 1 && (
+                <Marker
+                  position={project.coordinates[0]}
+                  icon={createNearbyProjectMarker(project.type)}
+                >
+                  <Popup>
+                    <div className="p-1">
+                      <h3 className="font-semibold text-sm">{project.name}</h3>
+                      <p className="text-xs capitalize">{project.type} • {project.phase}</p>
+                      <p className="text-xs">Dist: {project.distance.toFixed(1)} km</p>
+                    </div>
+                  </Popup>
+                </Marker>
+              )
+            )}
+          </div>
+        ))}
       </MapContainer>
 
       {/* Add CSS for animations */}

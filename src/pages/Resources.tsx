@@ -17,12 +17,13 @@ import {
   ExternalLink,
   Gavel,
   HelpCircle,
-  Calculator,
-  AlertTriangle,
-  RefreshCw,
+  Briefcase,
+  Search,
   Database,
-  Globe
+  Globe,
+  AlertTriangle
 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Guide {
   title: string;
@@ -142,20 +143,7 @@ Yours faithfully,
 ];
 
 export default function Resources() {
-  const [calcData, setCalcData] = useState({
-    area: "",
-    unit: "sqft",
-    marketRate: "",
-    locationType: "urban",
-    assetsValue: "0"
-  });
-
-  const [calcResult, setCalcResult] = useState<{
-    marketValue: number,
-    factorAmount: number,
-    solatium: number,
-    totalCompensation: number
-  } | null>(null);
+  const { toast } = useToast();
 
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
@@ -176,41 +164,7 @@ export default function Resources() {
     document.body.removeChild(a);
   };
 
-  const calculateCompensation = () => {
-    const area = parseFloat(calcData.area);
-    const rate = parseFloat(calcData.marketRate);
-    const assets = parseFloat(calcData.assetsValue);
 
-    if (isNaN(area) || isNaN(rate)) return;
-
-    // 1. Determine Market Value
-    let areaInSqFt = area;
-    if (calcData.unit === 'acre') areaInSqFt = area * 43560;
-    if (calcData.unit === 'hectare') areaInSqFt = area * 107639;
-    if (calcData.unit === 'sqm') areaInSqFt = area * 10.764;
-
-    const baseMarketValue = areaInSqFt * rate;
-
-    // 2. Apply Multiplication Factor (1x Urban, 2x Rural as per Act base rule)
-    const factor = calcData.locationType === 'rural' ? 2 : 1;
-    const factorAmount = baseMarketValue * factor;
-
-    // 3. Add Assets
-    const valueWithAssets = factorAmount + (isNaN(assets) ? 0 : assets);
-
-    // 4. Solatium (100% of the total compensation so far)
-    const solatium = valueWithAssets;
-
-    // Total
-    const total = valueWithAssets + solatium;
-
-    setCalcResult({
-      marketValue: baseMarketValue,
-      factorAmount: factorAmount,
-      solatium: solatium,
-      totalCompensation: total
-    });
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-muted/30">
@@ -235,10 +189,6 @@ export default function Resources() {
               <TabsTrigger value="guides" className="gap-2">
                 <BookOpen className="h-4 w-4" />
                 Acts & Guides
-              </TabsTrigger>
-              <TabsTrigger value="calculator" className="gap-2">
-                <Calculator className="h-4 w-4" />
-                Calculator
               </TabsTrigger>
               <TabsTrigger value="templates" className="gap-2">
                 <FileText className="h-4 w-4" />
@@ -405,133 +355,7 @@ export default function Resources() {
             </Card>
           </TabsContent>
 
-          {/* Calculator Tab */}
-          <TabsContent value="calculator">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="shadow-soft">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calculator className="h-5 w-5" />
-                    Estimate Compensation
-                  </CardTitle>
-                  <CardDescription>
-                    Provide property details to estimate compensation as per LARR Act, 2013 rules.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Total Area</Label>
-                      <Input
-                        placeholder="Ex: 1200"
-                        type="number"
-                        value={calcData.area}
-                        onChange={(e) => setCalcData({ ...calcData, area: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Unit</Label>
-                      <Select value={calcData.unit} onValueChange={(val) => setCalcData({ ...calcData, unit: val })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="sqft">Sq. Ft</SelectItem>
-                          <SelectItem value="sqm">Sq. Meter</SelectItem>
-                          <SelectItem value="acre">Acre</SelectItem>
-                          <SelectItem value="hectare">Hectare</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label>Market Rate (per sq.ft)</Label>
-                    <Input
-                      placeholder="Ex: 4500 (Guideline Value)"
-                      type="number"
-                      value={calcData.marketRate}
-                      onChange={(e) => setCalcData({ ...calcData, marketRate: e.target.value })}
-                    />
-                    <p className="text-xs text-muted-foreground">Enter the government guideline value or avg. registered value.</p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Location Type</Label>
-                    <Select value={calcData.locationType} onValueChange={(val) => setCalcData({ ...calcData, locationType: val })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="urban">Urban (Factor 1.0)</SelectItem>
-                        <SelectItem value="rural">Rural (Factor 2.0)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Value of Structures / Trees (Optional)</Label>
-                    <Input
-                      placeholder="Ex: 500000"
-                      type="number"
-                      value={calcData.assetsValue}
-                      onChange={(e) => setCalcData({ ...calcData, assetsValue: e.target.value })}
-                    />
-                  </div>
-
-                  <div className="pt-4 flex gap-2">
-                    <Button className="w-full" onClick={calculateCompensation}>Calculate Estimate</Button>
-                    <Button variant="outline" size="icon" onClick={() => {
-                      setCalcData({ area: "", unit: "sqft", marketRate: "", locationType: "urban", assetsValue: "0" });
-                      setCalcResult(null);
-                    }}><RefreshCw className="h-4 w-4" /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Result Card */}
-              <Card className="shadow-soft bg-muted/20">
-                <CardHeader>
-                  <CardTitle>Calculation Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!calcResult ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-                      <Calculator className="h-12 w-12 mb-4 opacity-50" />
-                      <p>Enter details to see breakdown</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-muted-foreground">Market Value (MV)</span>
-                        <span className="font-medium">₹ {calcResult.marketValue.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-muted-foreground">Factor ({calcData.locationType === 'rural' ? '2x' : '1x'})</span>
-                        <span className="font-medium">₹ {calcResult.factorAmount.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-muted-foreground">Assets Value</span>
-                        <span className="font-medium">₹ {parseFloat(calcData.assetsValue || "0").toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <div className="flex flex-col">
-                          <span className="text-muted-foreground">Solatium (100%)</span>
-                          <span className="text-xs text-muted-foreground">100% of (MV x Factor + Assets)</span>
-                        </div>
-                        <span className="font-medium text-emerald-600">+ ₹ {calcResult.solatium.toLocaleString()}</span>
-                      </div>
-
-                      <div className="mt-6 p-4 bg-primary/10 rounded-lg flex justify-between items-center">
-                        <span className="font-bold text-lg text-primary">Total Est. Compensation</span>
-                        <span className="font-bold text-xl text-primary">₹ {calcResult.totalCompensation.toLocaleString()}</span>
-                      </div>
-
-                      <div className="text-xs text-muted-foreground mt-4">
-                        * This is an estimate based on LARR Act 2013 provisions. Actual compensation may vary based on specific state amendments and assessments.
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
 
         </Tabs>
       </main>
